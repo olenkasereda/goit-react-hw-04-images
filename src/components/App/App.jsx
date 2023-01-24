@@ -1,93 +1,80 @@
+import { useState, useEffect } from 'react';
 import { ImageGallery } from 'components/ImageGallery';
 import { Loader } from 'components/Loader';
 import { ImageModal } from 'components/Modal';
 import { Searchbar } from 'components/Searchbar';
-import { Component } from 'react';
 import { Button } from 'components/Button';
 import fetchImage from 'services/image_api';
 
-export class App extends Component {
-  state = {
-    isLoader: false,
-    total: 0,
-    images: [],
-    selectedImage: null,
-    query: '',
-    page: 1,
-  };
+export function App() {
+  const [isLoader, setIsLoader] = useState(false);
+  const [total, setTotal] = useState(0);
+  const [images, setImages] = useState([]);
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [query, setQuery] = useState('');
+  const [page, setPage] = useState(1);
 
-  componentDidUpdate(_, prevState) {
-    if (
-      prevState.query !== this.state.query ||
-      prevState.page !== this.state.page
-    ) {
-      this.setState({ isLoader: true });
-      fetchImage({
-        query: this.state.query,
-        page: this.state.page,
-        isLoader: true,
-      })
-        .then(images => {
-          this.setState(prevState => ({
-            images: [...prevState.images, ...images.hits],
-            total: images.totalHits,
-          }));
-        })
-        .catch(error => this.setState({ error }))
-        .finally(
-          setTimeout(() => {
-            this.setState({ isLoader: false });
-          }, 700)
-        );
+  useEffect(() => {
+    if (query === '') {
+      return;
     }
-  }
+    setIsLoader(true);
+    fetchImage({
+      query: query,
+      page: page,
+      isLoader: true,
+    })
+      .then(images => {
+        setImages(prev => [...prev, ...images.hits]);
+        setTotal(images.totalHits);
+      })
 
-  handleFormSubmit = ({ value }) => {
-    this.setState({ query: value, images: [], page: 1 });
+      .catch(error => console.log(error))
+      .finally(
+        setTimeout(() => {
+          setIsLoader(false);
+        }, 700)
+      );
+  }, [query, page]);
+
+  const handleFormSubmit = ({ value }) => {
+    setPage(1);
+    setQuery(value);
+    setImages([]);
   };
 
-  openModal = selectedImage => {
-    this.setState({ selectedImage: selectedImage });
+  const openModal = selectedImage => {
+    setSelectedImage(selectedImage);
   };
 
-  closeModal = () => {
-    this.setState({ selectedImage: null });
+  const closeModal = () => {
+    setSelectedImage(null);
   };
 
-  selectImage = largeImage => {
-    this.setState({ selectedImage: largeImage });
+  const selectImage = largeImage => {
+    setSelectedImage(largeImage);
   };
 
-  onLoadBtnClick = () => {
-    this.setState(prevState => ({
-      page: prevState.page + 1,
-    }));
+  const onLoadBtnClick = () => {
+    setPage(prev => prev + 1);
   };
-
-  render() {
-    return (
-      <>
-        <Searchbar onSubmit={this.handleFormSubmit} />
-        {this.state.images.length === 0 && <h1>There are no pictures</h1>}
-        {this.state.isLoader && <Loader />}
-        {this.state.images.length !== 0 && (
-          <ImageGallery
-            onSelect={this.selectImage}
-            images={this.state.images}
-          />
-        )}
-        {this.state.images.length < this.state.total && (
-          <Button onClick={this.onLoadBtnClick} />
-        )}
-        {this.state.selectedImage && (
-          <ImageModal
-            image={this.state.selectedImage}
-            isOpen={Boolean(this.openModal)}
-            tags={this.state.selectedImage}
-            onRequestClose={this.closeModal}
-          />
-        )}
-      </>
-    );
-  }
+  return (
+    <>
+      <Searchbar onSubmit={handleFormSubmit} />
+      {images.length === 0 && <h1>There are no pictures</h1>}
+      {images.length !== 0 && (
+        <ImageGallery onSelect={selectImage} images={images} />
+      )}
+      {isLoader && <Loader />}
+      {images.length < total && <Button onClick={onLoadBtnClick} />}
+      {selectedImage && (
+        <ImageModal
+          image={selectedImage}
+          isOpen={Boolean(openModal)}
+          tags={selectedImage}
+          onRequestClose={closeModal}
+        />
+      )}
+    </>
+  );
 }
